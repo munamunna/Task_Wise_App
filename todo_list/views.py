@@ -5,6 +5,7 @@ from .models import TodoItem
 from .serializers import TodoItemSerializer
 from rest_framework import authentication,permissions
 from datetime import date
+from django.shortcuts import get_object_or_404
 
 class TodoItemViewSet(viewsets.ModelViewSet):
     serializer_class = TodoItemSerializer
@@ -34,17 +35,35 @@ class TodoItemViewSet(viewsets.ModelViewSet):
         
         # Serialize the queryset
         serializer = self.get_serializer(overdue_items, many=True)
+
+    
+    def get_overdue_item(self, request, pk=None):
+        # Get today's date
+        today = date.today()
+
+        # Retrieve the specific todo item by pk
+        todo_item = get_object_or_404(TodoItem, pk=pk, user=request.user)
+
+        # Check if the todo item is overdue
+        if todo_item.due_date < today:
+            # Serialize the todo item
+            serializer = self.get_serializer(todo_item)
+            return Response(serializer.data)
+        else:
+            return Response({"message": "Todo item is not overdue."}, status=status.HTTP_200_OK)
         
         return Response(serializer.data)
 
-    def update_due_date(self, request, pk=None):
+    def update_due_date(self, request, pk):
         try:
-            todo_item = TodoItem.objects.get(pk=pk)
+            # Retrieve the todo item
+            todo_item = TodoItem.objects.get(pk=pk, user=request.user)
         except TodoItem.DoesNotExist:
+            # Return 404 if todo item not found
             return Response({"error": "Todo item not found."}, status=status.HTTP_404_NOT_FOUND)
 
+        # Check if new_due_date exists in the request data
         new_due_date = request.data.get('new_due_date')
-
         if not new_due_date:
             return Response({"error": "New due date is required."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -52,5 +71,6 @@ class TodoItemViewSet(viewsets.ModelViewSet):
         todo_item.due_date = new_due_date
         todo_item.save()
 
+        # Serialize the updated todo item
         serializer = self.get_serializer(todo_item)
         return Response(serializer.data)
