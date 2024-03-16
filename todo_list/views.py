@@ -6,6 +6,7 @@ from .serializers import TodoItemSerializer
 from rest_framework import authentication,permissions
 from datetime import date
 from django.shortcuts import get_object_or_404
+from django.core.exceptions import ObjectDoesNotExist
 
 class TodoItemViewSet(viewsets.ModelViewSet):
     serializer_class = TodoItemSerializer
@@ -26,15 +27,18 @@ class TodoItemViewSet(viewsets.ModelViewSet):
         # Filter todos by the authenticated user
         return TodoItem.objects.filter(user=self.request.user)
     
-    def get_overdue_items(self,request):
+    def get_overdue_items(self, request):
         # Get today's date
         today = date.today()
 
         # Filter todos by the authenticated user and due dates that have passed
         overdue_items = TodoItem.objects.filter(user=self.request.user, due_date__lt=today)
-        
+
         # Serialize the queryset
         serializer = self.get_serializer(overdue_items, many=True)
+        
+        # Return the serialized data as a response
+        return Response(serializer.data)
 
     
     def get_overdue_item(self, request, pk=None):
@@ -74,3 +78,29 @@ class TodoItemViewSet(viewsets.ModelViewSet):
         # Serialize the updated todo item
         serializer = self.get_serializer(todo_item)
         return Response(serializer.data)
+
+    def destroy(self, request,pk):
+        try:
+            todo_item = TodoItem.objects.get(pk=pk, user=request.user)
+            self.perform_destroy(todo_item)
+            return Response({"success": "Todo item deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+        except ObjectDoesNotExist:
+            return Response({"error": "Todo item does not exist."}, status=status.HTTP_404_NOT_FOUND)
+    
+    def update(self, request, pk):
+        try:
+            # Retrieve the todo item
+            todo_item = TodoItem.objects.get(pk=pk, user=request.user)
+            # Deserialize the request data
+            serializer = self.get_serializer(todo_item, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            # Save the updated todo item
+            serializer.save()
+            # Respond with success message and updated data
+            return Response({"success": "Todo item updated successfully.", "data": serializer.data}, status=status.HTTP_200_OK)
+        except ObjectDoesNotExist:
+            # Handle case where todo item does not exist
+            return Response({"error": "Todo item does not exist."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            # Handle any other unexpected errors
+            return Response({"error": f"An error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
