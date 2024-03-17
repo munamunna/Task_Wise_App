@@ -12,8 +12,7 @@ from .models import UserProfile
 from django.shortcuts import render
 from django.http import HttpResponse
 
-def index(request):
-    return HttpResponse("Welcome to TaskWise!")
+
 
 # Create your views here.
 class UsersView(ModelViewSet):
@@ -37,7 +36,7 @@ def verify_email(request, token):
 
     # Redirect the user to a page indicating successful email verification
     print("Redirecting to index view") 
-    return redirect('index')
+    return redirect('todos')
 
 
 

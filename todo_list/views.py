@@ -24,8 +24,16 @@ class TodoItemViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_401_UNAUTHORIZED
             )
     def get_queryset(self):
-        # Filter todos by the authenticated user
-        return TodoItem.objects.filter(user=self.request.user)
+        queryset = TodoItem.objects.filter(user=self.request.user)
+        
+        # Get sorting parameter from query parameters
+        sort_by = self.request.query_params.get('sort_by')
+        
+        # Sort by priority if sort_by parameter is provided
+        if sort_by == 'priority':
+            queryset = queryset.order_by('priority')
+        
+        return queryset
     
     def get_overdue_items(self, request):
         # Get today's date
